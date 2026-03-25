@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import time
+import logging
 from typing import Annotated, Optional
 
 from langchain_core.messages import (
@@ -90,6 +91,8 @@ def _build_system_message(
 
 # ── Retry wrapper ─────────────────────────────────────────────────────────────
 
+logger = logging.getLogger(__name__)
+
 def _invoke_with_retry(
     messages: list[BaseMessage],
     retries: int = 1,
@@ -101,13 +104,17 @@ def _invoke_with_retry(
             return llm_with_tools.invoke(messages)
         except Exception as exc:
             last_exc = exc
+            logger.exception("LLM invocation failed on attempt %d", attempt)
             if attempt < retries:
                 time.sleep(delay_seconds)
+
+    debug_text = f"{type(last_exc).__name__}: {last_exc}" if last_exc else "No exception captured."
 
     return AIMessage(
         content=(
             "I am having a temporary model connectivity issue right now. "
-            "Please retry your message in a moment."
+            "Please retry your message in a moment.\n\n"
+            f"DEBUG: {debug_text}"
         )
     )
 
